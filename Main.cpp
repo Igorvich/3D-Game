@@ -3,8 +3,12 @@
 #include <gl/GL.h>
 #include <gl/GLU.h>
 #include "Texture.h"
-#include "Cube.h"
+#include "Object.h"
 #include "Terrain.h"
+#include "ObjectHandler.h"
+#include <vector>
+#include <algorithm>
+#include "Main.h"
 
 Texture minecraftTexture{ "Resources/dirtSide.png" };
 Texture dirtTopTexture{ "Resources/dirtTop.png" };
@@ -16,11 +20,13 @@ GLuint dirtTopTextr;
 GLuint dirtBotTexture;
 GLuint landscapeTexture;
 
+ObjectHandler objHandler;
+
 float cameraX = 0.0, cameraY = 0.0, cameraZ = -10.0, cameraWidth = 1024, cameraHeight = 768, angle = 0;
 float rotateX = 0.0, rotateY = -100.0, rotateZ = 0.0;
 float centerX = 512, centerY = 384;
 float angleX = 0, angleY = 0, angleZ = 0;
-float zFar = 15000, zNear = 0.00001;
+float zFar = 1024, zNear = 0.01;
 float zoomCamera = 0, zoomX = 0, zoomY = 0;
 bool horizontal = false, vertical = false;
 
@@ -29,16 +35,18 @@ bool rotateArea = false;
 float theta = -1.569999, phi = 0;
 float eyeX = 0.000797, eyeY, eyeZ, pickObjX, pickObjY, pickObjZ;
 
+int selected = 0;
+
 void setCameraPosition(void);
 void rotateCamera(void);
-void drawCube();
+void drawObject();
 void resetCamera(void);
 
 
 void Display(void)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 	glEnable(GL_DEPTH_TEST);
 
@@ -78,13 +86,16 @@ void Display(void)
 	GLfloat lightPosition[] = { 0.5f, 0.5f, 0.5f, 1.0f };
 	glLightfv(GL_LIGHT1, GL_POSITION, lightPosition);
 	*/
-	drawCube();
+	drawObject();
 	
 	glutSwapBuffers();
 }
 
 void Reshape(GLint width, GLint height)
 {
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glViewport(0, 0, width, height);
+
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	gluPerspective(90, width / height, zNear, zFar);
@@ -95,29 +106,150 @@ void InitGraphics(void)
 {
 }
 
+void list_hits(GLint hits, GLuint *names)
+{
+	int i;
+
+	/*
+	For each hit in the buffer are allocated 4 bytes:
+	1. Number of hits selected (always one,
+	beacuse when we draw each object
+	we use glLoadName, so we replace the
+	prevous name in the stack)
+	2. Min Z
+	3. Max Z
+	4. Name of the hit (glLoadName)
+	*/
+
+	printf("%d hits:\n", hits);
+
+	for (i = 0; i < hits; i++)
+		printf("Number: %d\n"
+		"Min Z: %d\n"
+		"Max Z: %d\n"
+		"Name on stack: %d\n",
+		(GLubyte)names[i * 4],
+		(GLubyte)names[i * 4 + 1],
+		(GLubyte)names[i * 4 + 2],
+		(GLubyte)names[i * 4 + 3]
+		);
+
+	printf("\n");
+}
+
+void gl_select(int x, int y)
+{
+	GLuint buff[64] = { 0 };
+	GLint hits, view[4];
+
+	/*
+	This choose the buffer where store the values for the selection data
+	*/
+	glSelectBuffer(64, buff);
+
+	/*
+	This retrieve info about the viewport
+	*/
+	glGetIntegerv(GL_VIEWPORT, view);
+
+	/*
+	Switching in selecton mode
+	*/
+	glRenderMode(GL_SELECT);
+
+	/*
+	Clearing the name's stack
+	This stack contains all the info about the objects
+	*/
+	glInitNames();
+
+	/*
+	Now fill the stack with one element (or glLoadName will generate an error)
+	*/
+	glPushName(0);
+
+	/*
+	Now modify the vieving volume, restricting selection area around the cursor
+	*/
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+
+	/*
+	restrict the draw to an area around the cursor
+	*/
+	gluPickMatrix(x, y, 1.0, 1.0, view);
+	gluPerspective(90, 1024/768, zNear, zFar);
+
+	/*
+	Draw the objects onto the screen
+	*/
+	glMatrixMode(GL_MODELVIEW);
+
+	/*
+	draw only the names in the stack, and fill the array
+	*/
+	glutSwapBuffers();
+	Display();
+
+	/*
+	Do you remeber? We do pushMatrix in PROJECTION mode
+	*/
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+
+	/*
+	get number of objects drawed in that area
+	and return to render mode
+	*/
+	hits = glRenderMode(GL_RENDER);
+
+	/*
+	Print a list of the objects
+	*/
+	list_hits(hits, buff);
+
+	/*
+	uncomment this to show the whole buffer
+	* /
+	gl_selall(hits, buff);
+	*/
+
+	glMatrixMode(GL_MODELVIEW);
+}
+
+void mousedw(int x, int y, int but)
+{
+	printf("Mouse button %d pressed at %d %d\n", but, x, y);
+	gl_select(x, 768 - y); //Important: gl (0,0) ist bottom left but window coords (0,0) are top left so we have to change this!
+}
+
 void MouseButton(int button, int state, int x, int y)
 {
 	switch (button)
 	{
 	case GLUT_LEFT_BUTTON:
+		if (state == GLUT_DOWN)
+		{
+			mousedw(x, y, button);
+		}
 		break;
 	case GLUT_MIDDLE_BUTTON:			// Middle mouse button
 		rotateArea = false;
 		if (state == GLUT_DOWN)
 		{
-			printf("Right Click At %d %d \n", x, y);
+			printf("Middle Click At %d %d \n", x, y);
 			oldX = x;
 			oldY = y;
 			rotateArea = true;
 			pickObjX = 0;
 			pickObjY = 0;
 			pickObjZ = 0;
-			printf("The value from theta is: %f/n", theta);
-			printf("The value from eyeX is: %f/n", eyeX);
+			printf("The value from theta is: %f\n", theta);
+			printf("The value from eyeX is: %f\n", eyeX);
 		}
-		else if (state == GLUT_DOWN)
+		else if (state == GLUT_UP)
 			rotateArea = false;
-		printf("Middle Click At %d %d \n", x, y);
 		break;
 	case GLUT_RIGHT_BUTTON:
 		if (state == GLUT_DOWN)
@@ -234,12 +366,12 @@ void rotateCamera()
 {
 }
 
-void drawCube(int size, int leftBottomLocation)
+void drawObject(int size, int leftBottomLocation)
 {
 	
 }
 
-void drawCube()
+void drawObject()
 {
 	blockTexture = minecraftTexture.getTextureId();
 	dirtTopTextr = dirtTopTexture.getTextureId();
@@ -272,9 +404,15 @@ void drawCube()
 
 	int position[] = { 0, 0, 0 };
 	int position1[] = { 4, 0, 0 };
-	Cube cube = Cube(1, position, blockTexture, dirtTopTextr, dirtBotTexture);
-	//Cube cube1 = Cube(2, position1, blockTexture, dirtTopTextr, dirtBotTexture);
-	//Cube cube2 = Cube(10, position, blockTexture, dirtTopTextr, dirtBotTexture);
+
+	glLoadName(7);
+	
+	objHandler.createObject(1, position, blockTexture, dirtTopTextr, dirtBotTexture);
+	//Object Object = Object(1, position, blockTexture, dirtTopTextr, dirtBotTexture);
+	//Object Object1 = Object(2, position1, blockTexture, dirtTopTextr, dirtBotTexture);
+	//Object Object2 = Object(10, position, blockTexture, dirtTopTextr, dirtBotTexture);
+
+	glLoadName(14);
 
 	Terrain terrain = Terrain(10, 6, landscapeTexture, position);
 
