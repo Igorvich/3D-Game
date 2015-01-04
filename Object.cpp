@@ -3,7 +3,6 @@
 #include <gl/GL.h>
 #include <gl/GLU.h>
 #include "Object.h"
-#include "Texture.h"
 
 using namespace std;
 
@@ -22,6 +21,8 @@ Object::Object(int size, int posBotLeft[], GLuint textureSide, GLuint textureTop
 	id = idNumber;
 	glEnable(GL_TEXTURE_2D);
 
+	glBindTexture(GL_TEXTURE_2D, textureSide);
+
 	glBegin(GL_QUADS);
 
 	// front
@@ -31,8 +32,6 @@ Object::Object(int size, int posBotLeft[], GLuint textureSide, GLuint textureTop
 	glTexCoord2f(0, 0);	glVertex3f(posBotLeft[0], posBotLeft[1] + size, posBotLeft[2]);
 
 	glEnd();
-
-	glBindTexture(GL_TEXTURE_2D, textureSide);
 
 	glBegin(GL_QUADS);
 
@@ -89,6 +88,11 @@ void Object::moveObject(Object *object, int direction, int step)
 int Object::getId()
 {
 	return id;
+}
+
+void Object::setId(int number)
+{
+	id = number;
 }
 
 Object Object::getObject()

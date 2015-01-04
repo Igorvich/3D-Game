@@ -13,22 +13,26 @@
 Texture minecraftTexture{ "Resources/dirtSide.png" };
 Texture dirtTopTexture{ "Resources/dirtTop.png" };
 Texture dirtBottomTexture{ "Resources/dirtBottom.png" };
-Texture landscape{ "Resources/landscape.jpg" };
+Texture landscape{ "Resources/grass4.jpg" };
+Texture viewScape{ "Resources/view.jpg" };
 
 GLuint blockTexture;
 GLuint dirtTopTextr;
 GLuint dirtBotTexture;
 GLuint landscapeTexture;
+GLuint sideScapeTexture;
 
 ObjectHandler objHandler;
 
-float cameraX = 0.0, cameraY = 0.0, cameraZ = -10.0, cameraWidth = 1024, cameraHeight = 768, angle = 0;
+float cameraX = 0.0, cameraY = 0.0, cameraZ = 0.0, cameraWidth = 1024, cameraHeight = 768, angle = 0;
 float rotateX = 0.0, rotateY = -100.0, rotateZ = 0.0;
 float centerX = 512, centerY = 384;
 float angleX = 0, angleY = 0, angleZ = 0;
 float zFar = 1024, zNear = 0.01;
-float zoomCamera = 0, zoomX = 0, zoomY = 0;
+float zoomCamera = 55.2, zoomX = 0, zoomY = 0;
+float xLocation = 0, zLocation = 0;
 bool horizontal = false, vertical = false;
+int rotationState = 0;
 
 int oldX, oldY;
 bool rotateArea = false;
@@ -40,6 +44,7 @@ int selected = 0;
 void setCameraPosition(void);
 void rotateCamera(void);
 void drawObject();
+void drawSurrounding();
 void resetCamera(void);
 
 
@@ -63,7 +68,7 @@ void Display(void)
 	glEnable(GL_LIGHT1);
 	*/
 	GLfloat LightPosition[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	GLfloat LightAmbient[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+	GLfloat LightAmbient[] = { 1.2f, 1.2f, 1.2f, 1.0f };
 	GLfloat LightDiffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	GLfloat LightSpecular[] = { 0.5f, 0.5f, 0.5f, 1.0f };
 	glLightfv(GL_LIGHT0, GL_POSITION, LightPosition);
@@ -73,7 +78,7 @@ void Display(void)
 
 	GLfloat LightModelAmbient[] = { 0.2f, 0.2f, 0.2f, 1.0f };
 	GLfloat MaterialSpecular[] = { 0.2f, 0.2f, 0.2f, 1.0f };
-	GLfloat MaterialEmission[] = { 0, 0, 0, 1.0f };
+	GLfloat MaterialEmission[] = { 0.5, 0.5, 0.5, 1.0f };
 	glLightModelfv(GL_AMBIENT, LightModelAmbient);
 	glMaterialfv(GL_FRONT, GL_SPECULAR, MaterialSpecular);
 	glMaterialfv(GL_FRONT, GL_EMISSION, MaterialEmission);
@@ -87,6 +92,7 @@ void Display(void)
 	glLightfv(GL_LIGHT1, GL_POSITION, lightPosition);
 	*/
 	drawObject();
+	//drawSurrounding();
 	
 	glutSwapBuffers();
 }
@@ -135,6 +141,11 @@ void list_hits(GLint hits, GLuint *names)
 		);
 
 	printf("\n");
+
+	if ((GLubyte)names[0 * 4 + 3] == 1)
+	{
+		printf("De ondergrond is geselecteerd!\n");
+	}
 }
 
 void gl_select(int x, int y)
@@ -257,19 +268,21 @@ void MouseButton(int button, int state, int x, int y)
 		break;
 	case GLUT_WHEEL_UP:
 		printf("Scroll Up At %d %d\n", x, y);
-		zoomCamera -= 0.2;
+		zoomCamera -= 2.0;
 		//zoomX = (x - glutGet(GLUT_WINDOW_WIDTH) / 2) /10;
 		//zoomY = (y - glutGet(GLUT_WINDOW_HEIGHT) / 2)/10;
+		printf("The amount of zoom is: %f\n", zoomCamera);
 		break;
 	case GLUT_WHEEL_DOWN:
 		printf("Scroll Down At %d %d\n", x ,y);
-		zoomCamera += 0.2;
+		zoomCamera += 2.0;
 		//zoomX = (x - glutGet(GLUT_WINDOW_WIDTH)/2)/10;
 		//zoomY = (y - glutGet(GLUT_WINDOW_HEIGHT) / 2) / 10;
 		printf("The width of the screen is: %d\n", glutGet(GLUT_WINDOW_WIDTH));
+		printf("The amount of zoom is: %f\n", zoomCamera);
 		break;
 	}
-	setCameraPosition();
+	//setCameraPosition();
 }
 
 void MouseMotion(int x, int y)
@@ -295,29 +308,42 @@ void Keyboard(unsigned char key, int x, int y)
 		case 27:		// Escape key
 			exit(0);
 			break;
+		case 120:		// X key
+			if (rotationState < 3)
+				rotationState++;
+			else if (rotationState >= 3)
+				rotationState = 0;
+			break;
 		case 119:		// W key
-			cameraY += 5.0;
+			cameraY -= 1;
+			zoomCamera -= 1;
 			//vertical = true;
 			//horizontal = false;
 			//rotateY += 2.5;
 			//angle += 2.5;
 			break;
 		case 97:		// A key
-			cameraX -= 5.0;
+			cameraX += 1;
+			xLocation -= 1;
+			//zLocation -= 1;
 			//horizontal = true;
 			//vertical = false;
 			//rotateX -= 2.5;
 			//angle -= 2.5;
 			break;
 		case 115:		// S key
-			cameraY -= 5.0;
+			cameraY += 1;
+			zoomCamera += 1;
 			//vertical = true;
 			//horizontal = false;
 			//rotateY -= 2.5;
 			//angle -= 2.5;
 			break;
 		case 100:		// D key
-			cameraX += 5.0;
+			cameraX -= 1;
+			xLocation += 1;
+			printf("The Xlocation is: %f\n", xLocation);
+			//zLocation += 1;
 			//horizontal = true;
 			//vertical = false;
 			//rotateX += 2.5;
@@ -325,9 +351,11 @@ void Keyboard(unsigned char key, int x, int y)
 			break;
 		case 113:		// Q key
 			angleX-=5;
+			printf("The X angle is: %f\n", angleX);
 			break;
 		case 101:		// E key
 			angleX+=5;
+			printf("The X angle is: %f\n", angleX);
 			break;
 		case 114:		// R key
 			angleY +=5;
@@ -347,7 +375,7 @@ void Keyboard(unsigned char key, int x, int y)
 			//114 = R
 				//116 = T
 		}
-	setCameraPosition();
+	//setCameraPosition();
 }
 
 void resetCamera()
@@ -371,22 +399,42 @@ void drawObject(int size, int leftBottomLocation)
 	
 }
 
+void drawSurrounding()
+{
+	glPushMatrix();
+
+	glBegin(GL_QUADS);
+
+	glVertex3f(-20, 0, -40);
+	glVertex3f(-20, 0, 20);
+	glVertex3f(-20, 20, 20);
+	glVertex3f(-20, 20, -20);
+
+	glEnd();
+
+	glPopMatrix();
+}
+
 void drawObject()
 {
 	blockTexture = minecraftTexture.getTextureId();
 	dirtTopTextr = dirtTopTexture.getTextureId();
 	dirtBotTexture = dirtBottomTexture.getTextureId();
 	landscapeTexture = landscape.getTextureId();
+	sideScapeTexture = viewScape.getTextureId();
 	/*glBindTexture(GL_TEXTURE_2D, blockTexture);
 	glEnable(GL_TEXTURE_2D);
 	*/
 	glPushMatrix();
 
-	glTranslatef(-0.5, -0.5, 0);
+	//glTranslatef(0, -0.5, 0);
 
-	glTranslatef(zoomX, zoomY, zoomCamera);
+	glTranslatef(-0, 0.5, 0);
 
-	glTranslatef(0.5, 0.5, 0.5);
+	//glTranslatef(zoomX, zoomY, zoomCamera);
+	glTranslatef(cameraX, cameraY, zoomCamera);
+
+	glTranslatef(0, -0.5, 0);
 
 	/*if (vertical)
 		glRotatef(angle, rotateX, rotateY, 0);
@@ -394,27 +442,75 @@ void drawObject()
 		glRotatef(angle, rotateX, rotateY, 0);
 		*/
 	//glRotatef(angle, rotateX, rotateY, rotateZ);
+	
+	//glTranslatef(-cameraX, 0, 0);
 
+	switch (rotationState)
+	{
+	case 0:
+		glRotatef(0, 0, 1, 0);
+		glRotatef(-45, 1, 0, 0);
+		break;
+	case 1:
+		glRotatef(-90, 0, 1, 0);
+		glRotatef(45, 0, 0, 1);
+		break;
+	case 2:
+		glRotatef(-180, 0, 1, 0);
+		glRotatef(45, 1, 0, 0);
+		break;
+	case 3:
+		glRotatef(-270, 0, 1, 0);
+		glRotatef(-45, 0, 0, 1);
+		break;
+	}
 
 	glRotatef(angleX, 0, 1, 0);
 	glRotatef(angleY, 1, 0, 0);
 	glRotatef(angleZ, 0, 0, 1);
 	
-	glTranslatef(-0.5, -0.5, -0.5);
+	//glTranslatef(cameraX, 0, 0);
 
-	int position[] = { 0, 0, 0 };
-	int position1[] = { 4, 0, 0 };
+	int position[] = { -100, 0, -100 };
+	int position1[] = { 50, 0, 0 };
 
-	glLoadName(7);
-	
-	objHandler.createObject(1, position, blockTexture, dirtTopTextr, dirtBotTexture);
+	objHandler.createFloor(200, 200, landscapeTexture, position);
+
+	glLoadName(1);
+
+	objHandler.createCube(1, position1, blockTexture, dirtTopTextr, dirtBotTexture);
+
+	glEnable(GL_TEXTURE_2D);
+
+	glBindTexture(GL_TEXTURE_2D, sideScapeTexture);
+
+	glBegin(GL_QUADS);
+
+	glTexCoord2f(0, 0);		glVertex3f(100, 40, -100);
+	glTexCoord2f(0, 1);		glVertex3f(100, 0, -100);
+	glTexCoord2f(0.25, 1);	glVertex3f(-100, 0, -100);
+	glTexCoord2f(0.25, 0);	glVertex3f(-100, 40, -100);
+
+	glTexCoord2f(0.25, 0);	glVertex3f(-100, 40, -100);
+	glTexCoord2f(0.25, 1);	glVertex3f(-100, 0, -100);
+	glTexCoord2f(0.5, 1);	glVertex3f(-100, 0, 100);
+	glTexCoord2f(0.5, 0);	glVertex3f(-100, 40, 100);
+
+	glTexCoord2f(0.5, 0);	glVertex3f(-100, 40, 100);
+	glTexCoord2f(0.5, 1);	glVertex3f(-100, 0, 100);
+	glTexCoord2f(0.75, 1);	glVertex3f(100, 0, 100);
+	glTexCoord2f(0.75, 0);	glVertex3f(100, 40, 100);
+
+	glTexCoord2f(0.75, 0);	glVertex3f(100, 40, 100);
+	glTexCoord2f(0.75, 1);	glVertex3f(100, 0, 100);
+	glTexCoord2f(1, 1);		glVertex3f(100, 0, -100);
+	glTexCoord2f(1, 0);		glVertex3f(100, 40, -100);
+
+	glEnd();
+
 	//Object Object = Object(1, position, blockTexture, dirtTopTextr, dirtBotTexture);
 	//Object Object1 = Object(2, position1, blockTexture, dirtTopTextr, dirtBotTexture);
 	//Object Object2 = Object(10, position, blockTexture, dirtTopTextr, dirtBotTexture);
-
-	glLoadName(14);
-
-	Terrain terrain = Terrain(10, 6, landscapeTexture, position);
 
 	/*glBegin(GL_QUADS);
 	// Front side

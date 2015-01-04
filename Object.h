@@ -31,4 +31,5 @@ public:
 	void rotateObject(Object *object, int direction, int step);
 	void moveObject(Object *object, int direction, int step);
 	int getId();
+	void setId(int number);
 };
